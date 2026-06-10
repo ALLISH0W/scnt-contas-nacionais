@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BrasilData — Dados do Brasil em Tempo Real",
-  description: "Explore dados reais do IBGE com dashboard interativo, autenticação via Supabase, e relatórios com insights — tudo rodando na Vercel. Criado com Z.ai.",
-  keywords: ["IBGE", "Brasil", "dados", "dashboard", "Supabase", "Vercel", "Z.ai"],
+  title: "SCNT Data — Contas Nacionais Trimestrais",
+  description: "Visualização interativa dos dados do Sistema de Contas Nacionais Trimestrais (SCNT) do IBGE. PIB, setores econômicos e componentes da despesa.",
+  keywords: ["IBGE", "SCNT", "Contas Nacionais", "PIB", "trimestral", "economia", "Brasil"],
   authors: [{ name: "Z.ai" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",

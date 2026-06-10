@@ -9,124 +9,111 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  LineChart, Line, Legend, AreaChart, Area,
 } from 'recharts'
-import { BarChart3, Users, TrendingUp, Lock, LogIn } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, Lock, LogIn, Activity } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
 
-interface PopulationData {
-  stateId: string
-  stateName: string
-  stateSigla: string
+interface GDPData {
+  quarter: string
+  quarterCode: string
   value: number
 }
 
-interface PIBData {
-  stateId: string
-  stateName: string
-  stateSigla: string
+interface SectorData {
+  quarter: string
+  quarterCode: string
+  sectorCode: string
+  sectorName: string
   value: number
 }
 
-const CHART_COLORS = [
-  '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5',
-  '#059669', '#047857', '#065f46', '#064e3b', '#022c22',
-  '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4', '#ccfbf1',
-  '#0d9488', '#0f766e', '#115e59', '#134e4a', '#042f2e',
-  '#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#fef3c7',
-  '#d97706', '#b45309',
-]
-
-function formatPopulation(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
-  return value.toString()
+interface ComponentData {
+  quarter: string
+  quarterCode: string
+  componentCode: string
+  componentName: string
+  value: number
 }
 
-function formatGDP(value: number): string {
-  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)} bi`
-  if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(0)} mi`
-  return `R$ ${value}`
+const SECTOR_COLORS: Record<string, string> = {
+  'Agropecuária': '#10b981',
+  'Indústria': '#f59e0b',
+  'Serviços': '#6366f1',
+  'PIB': '#ec4899',
+}
+
+function formatQuarter(q: string): string {
+  // "1º trimestre 2025" -> "T1 2025"
+  return q.replace('1º trimestre', 'T1').replace('2º trimestre', 'T2').replace('3º trimestre', 'T3').replace('4º trimestre', 'T4')
+}
+
+function calcGrowthRate(data: GDPData[]): number | null {
+  if (data.length < 2) return null
+  const sorted = [...data].sort((a, b) => a.quarterCode.localeCompare(b.quarterCode))
+  const last = sorted[sorted.length - 1].value
+  const prev = sorted[sorted.length - 2].value
+  return ((last - prev) / prev) * 100
+}
+
+function calcYoYGrowth(data: GDPData[]): number | null {
+  if (data.length < 5) return null
+  const sorted = [...data].sort((a, b) => a.quarterCode.localeCompare(b.quarterCode))
+  const last = sorted[sorted.length - 1]
+  const yearAgoCode = String(Number(last.quarterCode.substring(0, 4)) - 1) + last.quarterCode.substring(4)
+  const yearAgo = sorted.find(d => d.quarterCode === yearAgoCode)
+  if (!yearAgo) return null
+  return ((last.value - yearAgo.value) / yearAgo.value) * 100
 }
 
 export function DashboardSection() {
   const { isAuthenticated, setShowLoginDialog } = useAuthStore()
-  const [population, setPopulation] = useState<PopulationData[]>([])
-  const [pib, setPIB] = useState<PIBData[]>([])
+  const [gdpData, setGdpData] = useState<GDPData[]>([])
+  const [sectorData, setSectorData] = useState<SectorData[]>([])
+  const [componentData, setComponentData] = useState<ComponentData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!isAuthenticated) return
     async function fetchData() {
       try {
         setLoading(true)
-        const [popRes, pibRes] = await Promise.all([
-          fetch('/api/ibge/population'),
-          fetch('/api/ibge/pib'),
+        const [gdpRes, sectorRes, compRes] = await Promise.all([
+          fetch('/api/scnt/gdp'),
+          fetch('/api/scnt/sectors'),
+          fetch('/api/scnt/components'),
         ])
-        
-        if (!popRes.ok || !pibRes.ok) {
-          throw new Error('Erro ao buscar dados do IBGE')
-        }
-
-        const popData = await popRes.json()
-        const pibData = await pibRes.json()
-
-        setPopulation(popData)
-        setPIB(pibData)
+        if (!gdpRes.ok || !sectorRes.ok || !compRes.ok) throw new Error('Erro ao buscar dados do SCNT')
+        const gdp = await gdpRes.json()
+        const sectors = await sectorRes.json()
+        const components = await compRes.json()
+        setGdpData(gdp)
+        setSectorData(sectors)
+        setComponentData(components)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro desconhecido')
       } finally {
         setLoading(false)
       }
     }
-
     fetchData()
-  }, [])
-
-  // Top 10 for charts
-  const top10Pop = population.slice(0, 10)
-  const top10PIB = pib.slice(0, 10)
-
-  // Population by region for pie chart
-  const REGIONS: Record<string, string[]> = {
-    'Norte': ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
-    'Nordeste': ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
-    'Sudeste': ['ES', 'MG', 'RJ', 'SP'],
-    'Sul': ['PR', 'RS', 'SC'],
-    'Centro-Oeste': ['DF', 'GO', 'MS', 'MT'],
-  }
-
-  const regionData = Object.entries(REGIONS).map(([name, siglas]) => ({
-    name,
-    value: population
-      .filter((p) => siglas.includes(p.stateSigla))
-      .reduce((sum, p) => sum + p.value, 0),
-  }))
+  }, [isAuthenticated])
 
   if (!isAuthenticated) {
     return (
       <section id="dashboard" className="py-24 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center">
             <div className="max-w-md mx-auto py-16">
               <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-6">
                 <Lock className="w-10 h-10 text-muted-foreground" />
               </div>
               <h2 className="text-2xl font-bold mb-3">Dashboard Protegido</h2>
               <p className="text-muted-foreground mb-6">
-                Faça login com Supabase para acessar os dados do IBGE com gráficos interativos.
+                Faça login para acessar os dados do SCNT — Contas Nacionais Trimestrais do IBGE.
               </p>
-              <Button
-                size="lg"
-                className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => setShowLoginDialog(true)}
-              >
+              <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowLoginDialog(true)}>
                 <LogIn className="w-5 h-5 mr-2" />
                 Entrar com Supabase
               </Button>
@@ -137,41 +124,65 @@ export function DashboardSection() {
     )
   }
 
+  // Prepare chart data
+  const gdpChartData = [...gdpData]
+    .sort((a, b) => a.quarterCode.localeCompare(b.quarterCode))
+    .map(d => ({ ...d, quarterShort: formatQuarter(d.quarter) }))
+
+  // Sector chart data - pivot by quarter
+  const sectorQuarters = [...new Set(sectorData.map(d => d.quarterCode))].sort()
+  const sectorChartData = sectorQuarters.map(qc => {
+    const row: Record<string, string | number> = {
+      quarter: formatQuarter(sectorData.find(d => d.quarterCode === qc)?.quarter || ''),
+      quarterCode: qc,
+    }
+    sectorData.filter(d => d.quarterCode === qc).forEach(d => {
+      row[d.sectorName] = d.value
+    })
+    return row
+  })
+
+  // Component chart data for the last 8 quarters
+  const lastQuarters = sectorQuarters.slice(-8)
+  const componentChartData = lastQuarters.map(qc => {
+    const row: Record<string, string | number> = {
+      quarter: formatQuarter(componentData.find(d => d.quarterCode === qc)?.quarter || ''),
+    }
+    componentData.filter(d => d.quarterCode === qc).forEach(d => {
+      row[d.componentName] = d.value
+    })
+    return row
+  })
+
+  const qGrowth = calcGrowthRate(gdpData)
+  const yoyGrowth = calcYoYGrowth(gdpData)
+  const latestGDP = gdpChartData.length > 0 ? gdpChartData[gdpChartData.length - 1] : null
+
   return (
     <section id="dashboard" className="py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-sm font-medium mb-4">
-            <BarChart3 className="w-4 h-4" />
-            Dados do IBGE
+            <Activity className="w-4 h-4" />
+            SCNT — Contas Nacionais Trimestrais
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Dashboard{' '}
-            <span className="text-emerald-600">Interativo</span>
+            Dashboard <span className="text-emerald-600">Econômico</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Dados reais do Censo 2022 e PIB 2021, atualizados via API do IBGE.
+            Dados do PIB trimestral, setores econômicos e componentes da despesa — IBGE/SIDRA.
           </p>
         </motion.div>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-28 rounded-xl" />
-            ))}
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
           </div>
         ) : error ? (
           <Card className="border-destructive">
             <CardContent className="p-6 text-center">
               <p className="text-destructive">{error}</p>
-              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-                Tentar Novamente
-              </Button>
+              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Tentar Novamente</Button>
             </CardContent>
           </Card>
         ) : (
@@ -180,35 +191,39 @@ export function DashboardSection() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {[
                 {
-                  title: 'População Total',
-                  value: formatPopulation(population.reduce((s, p) => s + p.value, 0)),
-                  icon: Users,
-                  subtitle: 'Censo 2022',
-                },
-                {
-                  title: 'Mais Populoso',
-                  value: population[0]?.stateSigla || '-',
-                  icon: Users,
-                  subtitle: formatPopulation(population[0]?.value || 0),
-                },
-                {
-                  title: 'Maior PIB',
-                  value: pib[0]?.stateSigla || '-',
-                  icon: TrendingUp,
-                  subtitle: formatGDP(pib[0]?.value || 0),
-                },
-                {
-                  title: 'Unidades',
-                  value: '27',
+                  title: 'PIB (último trimestre)',
+                  value: latestGDP ? latestGDP.value.toFixed(2) : '-',
+                  subtitle: latestGDP ? formatQuarter(latestGDP.quarter) : '',
                   icon: BarChart3,
-                  subtitle: 'Estados + DF',
+                  color: 'text-emerald-500',
+                },
+                {
+                  title: 'Variação Trimestral',
+                  value: qGrowth !== null ? `${qGrowth >= 0 ? '+' : ''}${qGrowth.toFixed(2)}%` : '-',
+                  subtitle: 'Contra trimestre anterior',
+                  icon: qGrowth !== null && qGrowth >= 0 ? TrendingUp : TrendingDown,
+                  color: qGrowth !== null && qGrowth >= 0 ? 'text-emerald-500' : 'text-red-500',
+                },
+                {
+                  title: 'Variação Interanual',
+                  value: yoyGrowth !== null ? `${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(2)}%` : '-',
+                  subtitle: 'Contra mesmo trimestre do ano anterior',
+                  icon: yoyGrowth !== null && yoyGrowth >= 0 ? TrendingUp : TrendingDown,
+                  color: yoyGrowth !== null && yoyGrowth >= 0 ? 'text-emerald-500' : 'text-red-500',
+                },
+                {
+                  title: 'Base de Cálculo',
+                  value: '1995',
+                  subtitle: 'Índice encadeado com ajuste sazonal',
+                  icon: Activity,
+                  color: 'text-muted-foreground',
                 },
               ].map((stat) => (
                 <Card key={stat.title}>
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-muted-foreground">{stat.title}</span>
-                      <stat.icon className="w-4 h-4 text-emerald-500" />
+                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
                     </div>
                     <div className="text-2xl font-bold">{stat.value}</div>
                     <div className="text-xs text-muted-foreground mt-1">{stat.subtitle}</div>
@@ -218,159 +233,106 @@ export function DashboardSection() {
             </div>
 
             {/* Charts */}
-            <Tabs defaultValue="population" className="space-y-6">
+            <Tabs defaultValue="gdp" className="space-y-6">
               <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
-                <TabsTrigger value="population">População</TabsTrigger>
-                <TabsTrigger value="pib">PIB</TabsTrigger>
-                <TabsTrigger value="regions">Regiões</TabsTrigger>
+                <TabsTrigger value="gdp">PIB</TabsTrigger>
+                <TabsTrigger value="sectors">Setores</TabsTrigger>
+                <TabsTrigger value="components">Componentes</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="population">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <Card className="lg:col-span-2">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Top 10 Estados por População</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={top10Pop} layout="vertical" margin={{ left: 40 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis type="number" tickFormatter={formatPopulation} fontSize={12} />
-                            <YAxis dataKey="stateSigla" type="category" fontSize={12} width={35} />
-                            <Tooltip
-                              formatter={(value: number) => [formatPopulation(value), 'População']}
-                              labelFormatter={(label) => `Estado: ${label}`}
-                            />
-                            <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]}>
-                              {top10Pop.map((_, index) => (
-                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Ranking Completo</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                        {population.map((state, i) => (
-                          <div key={state.stateId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              i < 3 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
-                            }`}>
-                              {i + 1}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{state.stateSigla}</div>
-                              <div className="text-xs text-muted-foreground truncate">{state.stateName}</div>
-                            </div>
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              {formatPopulation(state.value)}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="pib">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <Card className="lg:col-span-2">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Top 10 Estados por PIB (2021)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={top10PIB} layout="vertical" margin={{ left: 40 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis type="number" tickFormatter={(v) => formatGDP(v)} fontSize={12} />
-                            <YAxis dataKey="stateSigla" type="category" fontSize={12} width={35} />
-                            <Tooltip
-                              formatter={(value: number) => [formatGDP(value), 'PIB']}
-                              labelFormatter={(label) => `Estado: ${label}`}
-                            />
-                            <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]}>
-                              {top10PIB.map((_, index) => (
-                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Ranking PIB</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                        {pib.map((state, i) => (
-                          <div key={state.stateId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              i < 3 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
-                            }`}>
-                              {i + 1}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{state.stateSigla}</div>
-                              <div className="text-xs text-muted-foreground truncate">{state.stateName}</div>
-                            </div>
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              {formatGDP(state.value)}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="regions">
+              <TabsContent value="gdp">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">População por Região</CardTitle>
+                    <CardTitle className="text-lg">PIB — Índice Trimestral com Ajuste Sazonal</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[450px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={regionData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={160}
-                            innerRadius={80}
-                            dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            labelLine={true}
-                          >
-                            {regionData.map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={CHART_COLORS[index]} />
-                            ))}
-                          </Pie>
+                        <AreaChart data={gdpChartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="gdpGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="quarterShort" fontSize={11} angle={-45} textAnchor="end" height={60} />
+                          <YAxis fontSize={12} />
                           <Tooltip
-                            formatter={(value: number) => [formatPopulation(value), 'População']}
+                            formatter={(value: number) => [value.toFixed(2), 'Índice PIB']}
+                            labelFormatter={(label) => `Trimestre: ${label}`}
                           />
+                          <Area type="monotone" dataKey="value" stroke="#10b981" fill="url(#gdpGradient)" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="sectors">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">PIB por Setor — Índice com Ajuste Sazonal</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[450px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={sectorChartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="quarter" fontSize={11} angle={-45} textAnchor="end" height={60} />
+                          <YAxis fontSize={12} />
+                          <Tooltip />
                           <Legend />
-                        </PieChart>
+                          {['Agropecuária', 'Indústria', 'Serviços', 'PIB'].map((sector) => (
+                            <Line
+                              key={sector}
+                              type="monotone"
+                              dataKey={sector}
+                              stroke={SECTOR_COLORS[sector]}
+                              strokeWidth={sector === 'PIB' ? 3 : 2}
+                              dot={false}
+                              strokeDasharray={sector === 'PIB' ? '5 5' : undefined}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="components">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Componentes da Despesa — Últimos 8 Trimestres</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[450px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={componentChartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="quarter" fontSize={11} angle={-45} textAnchor="end" height={60} />
+                          <YAxis fontSize={12} />
+                          <Tooltip />
+                          <Legend />
+                          {['Agropecuária', 'Indústria', 'Serviços', 'PIB'].map((comp) => (
+                            <Bar key={comp} dataKey={comp} fill={SECTOR_COLORS[comp]} radius={[2, 2, 0, 0]} />
+                          ))}
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* Source note */}
+            <div className="mt-6 text-center">
+              <p className="text-xs text-muted-foreground">
+                Fonte: IBGE — Sistema de Contas Nacionais Trimestrais (SCNT) · Tabela SIDRA 1621 · Índice encadeado com ajuste sazonal (Base: média 1995 = 100)
+              </p>
+            </div>
           </>
         )}
       </div>

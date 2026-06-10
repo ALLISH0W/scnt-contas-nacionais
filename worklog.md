@@ -86,3 +86,27 @@ Stage Summary:
 - Hero → Tech Stack → Dashboard (protected) → Report → Footer
 - Auth flow works: register → login → access dashboard
 - Charts display correctly with IBGE data
+
+---
+Task ID: 8
+Agent: Main
+Task: Rebuild frontend for SCNT theme (remove tech stack & report sections)
+
+Work Log:
+- Rewrote hero-section.tsx with SCNT theme: "Contas Nacionais Trimestrais", badge "Econômicas · Comércio · SCNT"
+- Rewrote dashboard-section.tsx with SCNT-specific charts: PIB area chart, sector line chart, component bar chart
+- Removed tech-stack-section.tsx from page.tsx
+- Removed report-section.tsx from page.tsx
+- Updated navbar links (removed Tecnologias and Relatório)
+- Updated footer with SCNT branding, links to IBGE SCNT page and SIDRA Table 1621
+- Updated layout.tsx metadata with SCNT title and description
+- Verified all changes with Agent Browser: login works, dashboard loads with real SIDRA data
+- Zero lint errors, zero runtime errors
+
+Stage Summary:
+- Site fully focused on SCNT - Sistema de Contas Nacionais Trimestrais
+- Hero → Dashboard (protected by login) → Footer
+- Dashboard shows: PIB index (area chart), GDP by sector (line chart), GDP components (bar chart)
+- Stats cards: PIB last quarter, quarterly variation, YoY variation, calculation base
+- All data from SIDRA API Table 1621 (real IBGE data)
+- Tech stack and report sections removed as requested

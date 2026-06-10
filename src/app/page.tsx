@@ -1,31 +1,25 @@
 'use client'
 
+import { Navbar } from '@/components/navbar'
+import { HeroSection } from '@/components/hero-section'
+import { TechStackSection } from '@/components/tech-stack-section'
+import { DashboardSection } from '@/components/dashboard-section'
+import { LoginDialog } from '@/components/login-dialog'
+import { ReportSection } from '@/components/report-section'
+import { Footer } from '@/components/footer'
+
 export default function Home() {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      gap: '2rem',
-      padding: '1rem'
-    }}>
-      <div style={{
-        position: 'relative',
-        width: '6rem',
-        height: '6rem'
-      }}>
-        <img
-          src="/logo.svg"
-          alt="Z.ai Logo"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <LoginDialog />
+      <main className="flex-1">
+        <HeroSection />
+        <TechStackSection />
+        <DashboardSection />
+        <ReportSection />
+      </main>
+      <Footer />
     </div>
   )
 }

@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, LogIn, LogOut, User } from 'lucide-react'
+import { Menu, X, LogIn, LogOut, User, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 
 const navLinks = [
   { label: 'Início', href: '#hero' },
+  { label: 'Sobre', href: '#sobre' },
+  { label: 'Indicadores', href: '#indicadores' },
+  { label: 'Metodologia', href: '#metodologia' },
   { label: 'Dashboard', href: '#dashboard' },
 ]
 
@@ -37,18 +40,18 @@ export function Navbar() {
           {/* Logo */}
           <a href="#hero" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">B</span>
+              <BarChart3 className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg">BrasilData</span>
+            <span className="font-bold text-lg">SCNT <span className="text-emerald-500">Data</span></span>
           </a>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                className="px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
                 {link.label}
               </a>
@@ -56,7 +59,7 @@ export function Navbar() {
           </div>
 
           {/* Auth Button */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3">
             {isAuthenticated && user ? (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -80,7 +83,7 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -95,7 +98,7 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border"
+            className="lg:hidden bg-background/95 backdrop-blur-xl border-b border-border"
           >
             <div className="px-4 py-4 space-y-2">
               {navLinks.map((link) => (

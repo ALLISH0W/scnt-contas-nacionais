@@ -9,9 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, AreaChart, Area,
+  LineChart, Line, Legend, AreaChart, Area, PieChart, Pie, Cell,
 } from 'recharts'
-import { BarChart3, TrendingUp, TrendingDown, Lock, LogIn, Activity } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, Lock, LogIn, Activity, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
 
 interface GDPData {
@@ -39,12 +39,14 @@ interface ComponentData {
 const SECTOR_COLORS: Record<string, string> = {
   'Agropecuária': '#10b981',
   'Indústria': '#f59e0b',
-  'Serviços': '#6366f1',
+  'Serviços': '#8b5cf6',
   'PIB': '#ec4899',
+  'Consumo das famílias': '#06b6d4',
 }
 
+const PIE_COLORS = ['#10b981', '#f59e0b', '#8b5cf6']
+
 function formatQuarter(q: string): string {
-  // "1º trimestre 2025" -> "T1 2025"
   return q.replace('1º trimestre', 'T1').replace('2º trimestre', 'T2').replace('3º trimestre', 'T3').replace('4º trimestre', 'T4')
 }
 
@@ -74,29 +76,31 @@ export function DashboardSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [gdpRes, sectorRes, compRes] = await Promise.all([
+        fetch('/api/scnt/gdp'),
+        fetch('/api/scnt/sectors'),
+        fetch('/api/scnt/components'),
+      ])
+      if (!gdpRes.ok || !sectorRes.ok || !compRes.ok) throw new Error('Erro ao buscar dados do SCNT')
+      const gdp = await gdpRes.json()
+      const sectors = await sectorRes.json()
+      const components = await compRes.json()
+      setGdpData(gdp)
+      setSectorData(sectors)
+      setComponentData(components)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!isAuthenticated) return
-    async function fetchData() {
-      try {
-        setLoading(true)
-        const [gdpRes, sectorRes, compRes] = await Promise.all([
-          fetch('/api/scnt/gdp'),
-          fetch('/api/scnt/sectors'),
-          fetch('/api/scnt/components'),
-        ])
-        if (!gdpRes.ok || !sectorRes.ok || !compRes.ok) throw new Error('Erro ao buscar dados do SCNT')
-        const gdp = await gdpRes.json()
-        const sectors = await sectorRes.json()
-        const components = await compRes.json()
-        setGdpData(gdp)
-        setSectorData(sectors)
-        setComponentData(components)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido')
-      } finally {
-        setLoading(false)
-      }
-    }
     fetchData()
   }, [isAuthenticated])
 
@@ -154,12 +158,29 @@ export function DashboardSection() {
     return row
   })
 
+  // Pie chart data - latest quarter sector composition
+  const latestQuarter = sectorQuarters[sectorQuarters.length - 1]
+  const pieData = sectorData
+    .filter(d => d.quarterCode === latestQuarter && d.sectorName !== 'PIB')
+    .map(d => ({ name: d.sectorName, value: d.value }))
+
+  // Growth rate bar chart - last 8 quarters
+  const growthData = gdpChartData.slice(-8).map((d, i, arr) => {
+    const prev = i > 0 ? arr[i - 1].value : null
+    const qGrowth = prev ? ((d.value - prev) / prev) * 100 : 0
+    return {
+      quarter: d.quarterShort,
+      growth: Number(qGrowth.toFixed(2)),
+      positive: qGrowth >= 0,
+    }
+  })
+
   const qGrowth = calcGrowthRate(gdpData)
   const yoyGrowth = calcYoYGrowth(gdpData)
   const latestGDP = gdpChartData.length > 0 ? gdpChartData[gdpChartData.length - 1] : null
 
   return (
-    <section id="dashboard" className="py-24">
+    <section id="dashboard" className="py-24 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-sm font-medium mb-4">
@@ -175,14 +196,20 @@ export function DashboardSection() {
         </motion.div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+            </div>
+            <Skeleton className="h-[500px] rounded-xl" />
           </div>
         ) : error ? (
           <Card className="border-destructive">
             <CardContent className="p-6 text-center">
               <p className="text-destructive">{error}</p>
-              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Tentar Novamente</Button>
+              <Button variant="outline" className="mt-4" onClick={fetchData}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Tentar Novamente
+              </Button>
             </CardContent>
           </Card>
         ) : (
@@ -196,6 +223,7 @@ export function DashboardSection() {
                   subtitle: latestGDP ? formatQuarter(latestGDP.quarter) : '',
                   icon: BarChart3,
                   color: 'text-emerald-500',
+                  bg: 'bg-emerald-500/10',
                 },
                 {
                   title: 'Variação Trimestral',
@@ -203,6 +231,7 @@ export function DashboardSection() {
                   subtitle: 'Contra trimestre anterior',
                   icon: qGrowth !== null && qGrowth >= 0 ? TrendingUp : TrendingDown,
                   color: qGrowth !== null && qGrowth >= 0 ? 'text-emerald-500' : 'text-red-500',
+                  bg: qGrowth !== null && qGrowth >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
                 },
                 {
                   title: 'Variação Interanual',
@@ -210,6 +239,7 @@ export function DashboardSection() {
                   subtitle: 'Contra mesmo trimestre do ano anterior',
                   icon: yoyGrowth !== null && yoyGrowth >= 0 ? TrendingUp : TrendingDown,
                   color: yoyGrowth !== null && yoyGrowth >= 0 ? 'text-emerald-500' : 'text-red-500',
+                  bg: yoyGrowth !== null && yoyGrowth >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
                 },
                 {
                   title: 'Base de Cálculo',
@@ -217,13 +247,16 @@ export function DashboardSection() {
                   subtitle: 'Índice encadeado com ajuste sazonal',
                   icon: Activity,
                   color: 'text-muted-foreground',
+                  bg: 'bg-muted',
                 },
               ].map((stat) => (
-                <Card key={stat.title}>
+                <Card key={stat.title} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <span className="text-sm text-muted-foreground">{stat.title}</span>
-                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                      <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                        <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                      </div>
                     </div>
                     <div className="text-2xl font-bold">{stat.value}</div>
                     <div className="text-xs text-muted-foreground mt-1">{stat.subtitle}</div>
@@ -234,16 +267,20 @@ export function DashboardSection() {
 
             {/* Charts */}
             <Tabs defaultValue="gdp" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+              <TabsList className="grid w-full grid-cols-4 max-w-lg mx-auto">
                 <TabsTrigger value="gdp">PIB</TabsTrigger>
                 <TabsTrigger value="sectors">Setores</TabsTrigger>
-                <TabsTrigger value="components">Componentes</TabsTrigger>
+                <TabsTrigger value="components">Despesa</TabsTrigger>
+                <TabsTrigger value="growth">Crescimento</TabsTrigger>
               </TabsList>
 
               <TabsContent value="gdp">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">PIB — Índice Trimestral com Ajuste Sazonal</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">PIB — Índice Trimestral com Ajuste Sazonal</CardTitle>
+                      <Badge variant="secondary" className="text-xs">Série completa</Badge>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[450px]">
@@ -257,12 +294,13 @@ export function DashboardSection() {
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                           <XAxis dataKey="quarterShort" fontSize={11} angle={-45} textAnchor="end" height={60} />
-                          <YAxis fontSize={12} />
+                          <YAxis fontSize={12} domain={['auto', 'auto']} />
                           <Tooltip
                             formatter={(value: number) => [value.toFixed(2), 'Índice PIB']}
                             labelFormatter={(label) => `Trimestre: ${label}`}
+                            contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
                           />
-                          <Area type="monotone" dataKey="value" stroke="#10b981" fill="url(#gdpGradient)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="value" stroke="#10b981" fill="url(#gdpGradient)" strokeWidth={2.5} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -271,35 +309,72 @@ export function DashboardSection() {
               </TabsContent>
 
               <TabsContent value="sectors">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">PIB por Setor — Índice com Ajuste Sazonal</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[450px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={sectorChartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                          <XAxis dataKey="quarter" fontSize={11} angle={-45} textAnchor="end" height={60} />
-                          <YAxis fontSize={12} />
-                          <Tooltip />
-                          <Legend />
-                          {['Agropecuária', 'Indústria', 'Serviços', 'PIB'].map((sector) => (
-                            <Line
-                              key={sector}
-                              type="monotone"
-                              dataKey={sector}
-                              stroke={SECTOR_COLORS[sector]}
-                              strokeWidth={sector === 'PIB' ? 3 : 2}
-                              dot={false}
-                              strokeDasharray={sector === 'PIB' ? '5 5' : undefined}
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <Card className="h-full">
+                      <CardHeader>
+                        <CardTitle className="text-lg">PIB por Setor — Índice com Ajuste Sazonal</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[450px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={sectorChartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis dataKey="quarter" fontSize={11} angle={-45} textAnchor="end" height={60} />
+                              <YAxis fontSize={12} />
+                              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }} />
+                              <Legend />
+                              {['Agropecuária', 'Indústria', 'Serviços', 'PIB'].map((sector) => (
+                                <Line
+                                  key={sector}
+                                  type="monotone"
+                                  dataKey={sector}
+                                  stroke={SECTOR_COLORS[sector]}
+                                  strokeWidth={sector === 'PIB' ? 3 : 2}
+                                  dot={false}
+                                  strokeDasharray={sector === 'PIB' ? '5 5' : undefined}
+                                />
+                              ))}
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <div>
+                    <Card className="h-full">
+                      <CardHeader>
+                        <CardTitle className="text-lg">Composição Setorial</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          Último trimestre disponível
+                        </p>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[350px] flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                paddingAngle={4}
+                                dataKey="value"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                              >
+                                {pieData.map((_, index) => (
+                                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
               </TabsContent>
 
               <TabsContent value="components">
@@ -314,11 +389,42 @@ export function DashboardSection() {
                           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                           <XAxis dataKey="quarter" fontSize={11} angle={-45} textAnchor="end" height={60} />
                           <YAxis fontSize={12} />
-                          <Tooltip />
+                          <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }} />
                           <Legend />
-                          {['Agropecuária', 'Indústria', 'Serviços', 'PIB'].map((comp) => (
+                          {['Agropecuária', 'Indústria', 'Consumo das famílias', 'Serviços', 'PIB'].map((comp) => (
                             <Bar key={comp} dataKey={comp} fill={SECTOR_COLORS[comp]} radius={[2, 2, 0, 0]} />
                           ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="growth">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Taxa de Crescimento Trimestral (%)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[450px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={growthData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="quarter" fontSize={11} angle={-45} textAnchor="end" height={60} />
+                          <YAxis fontSize={12} tickFormatter={(v) => `${v}%`} />
+                          <Tooltip
+                            formatter={(value: number) => [`${value}%`, 'Variação']}
+                            contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
+                          />
+                          <Bar dataKey="growth" radius={[4, 4, 0, 0]}>
+                            {growthData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={entry.positive ? '#10b981' : '#ef4444'}
+                              />
+                            ))}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

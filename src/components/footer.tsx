@@ -1,25 +1,47 @@
 'use client'
 
-import { Heart, ExternalLink } from 'lucide-react'
+import { Heart, ExternalLink, BarChart3 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 export function Footer() {
   return (
     <footer className="bg-gray-950 text-gray-300 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">SC</span>
+                <BarChart3 className="w-4 h-4 text-white" />
               </div>
               <span className="font-bold text-lg text-white">SCNT Data</span>
             </div>
-            <p className="text-sm text-gray-400 max-w-sm">
+            <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
               Sistema de Contas Nacionais Trimestrais — visualização interativa dos dados do IBGE.
               PIB, setores econômicos e componentes da despesa.
             </p>
+          </div>
+
+          {/* Navigation */}
+          <div>
+            <h3 className="font-semibold text-white mb-3">Navegação</h3>
+            <ul className="space-y-2 text-sm">
+              {[
+                { name: 'Sobre o SCNT', href: '#sobre' },
+                { name: 'Indicadores', href: '#indicadores' },
+                { name: 'Metodologia', href: '#metodologia' },
+                { name: 'Dashboard', href: '#dashboard' },
+              ].map((link) => (
+                <li key={link.name}>
+                  <a
+                    href={link.href}
+                    className="text-gray-400 hover:text-emerald-400 transition-colors"
+                  >
+                    {link.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Links */}
@@ -30,6 +52,7 @@ export function Footer() {
                 { name: 'IBGE — SCNT', href: 'https://www.ibge.gov.br/estatisticas/economicas/comercio/9300-contas-nacionais-trimestrais.html' },
                 { name: 'SIDRA — Tabela 1621', href: 'https://sidra.ibge.gov.br/tabela/1621' },
                 { name: 'Supabase', href: 'https://supabase.com' },
+                { name: 'GitHub', href: 'https://github.com/ALLISH0W/scnt-contas-nacionais' },
               ].map((link) => (
                 <li key={link.name}>
                   <a

@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { ArrowDown, BarChart3, TrendingUp } from 'lucide-react'
+import { ArrowDown, BarChart3, TrendingUp, Database } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 
@@ -13,17 +13,30 @@ export function HeroSection() {
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-gray-950 to-gray-900" />
 
-      {/* Grid pattern */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{
+      {/* Animated grid pattern */}
+      <div className="absolute inset-0 opacity-[0.04]" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
       }} />
 
-      {/* Glow */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
+      {/* Animated glow orbs */}
+      <motion.div
+        animate={{ x: [0, 30, 0], y: [0, -20, 0], opacity: [0.1, 0.15, 0.1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"
+      />
+      <motion.div
+        animate={{ x: [0, -20, 0], y: [0, 30, 0], opacity: [0.05, 0.1, 0.05] }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl"
+      />
+      <motion.div
+        animate={{ x: [0, 15, 0], y: [0, 15, 0], opacity: [0.03, 0.08, 0.03] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-3xl"
+      />
 
       {/* Hero image overlay */}
-      <div className="absolute inset-0 opacity-15">
+      <div className="absolute inset-0 opacity-10">
         <img src="/hero-image.png" alt="" className="w-full h-full object-cover" />
       </div>
 
@@ -48,7 +61,7 @@ export function HeroSection() {
         >
           Contas Nacionais
           <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-200">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200">
             Trimestrais
           </span>
         </motion.h1>
@@ -57,10 +70,10 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-lg sm:text-xl text-gray-300 mb-10 max-w-2xl mx-auto"
+          className="text-lg sm:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed"
         >
-          Explore os dados do Sistema de Contas Nacionais Trimestrais (SCNT) do IBGE.
-          Acompanhe o PIB, setores econômicos e componentes da despesa em tempo real.
+          Explore os dados do <strong className="text-emerald-400">Sistema de Contas Nacionais Trimestrais</strong> do IBGE.
+          Acompanhe o PIB, setores econômicos e componentes da despesa com visualizações interativas.
         </motion.p>
 
         <motion.div
@@ -69,8 +82,14 @@ export function HeroSection() {
           transition={{ duration: 0.8, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
+          <a href="#sobre">
+            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 h-12 text-base rounded-xl">
+              <Database className="w-5 h-5 mr-2" />
+              Conheça o SCNT
+            </Button>
+          </a>
           <a href="#dashboard">
-            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 h-12 text-base">
+            <Button size="lg" variant="outline" className="border-emerald-600 text-emerald-400 hover:bg-emerald-500/10 px-8 h-12 text-base rounded-xl">
               <TrendingUp className="w-5 h-5 mr-2" />
               Explorar Dados
             </Button>
@@ -78,8 +97,8 @@ export function HeroSection() {
           {!isAuthenticated && (
             <Button
               size="lg"
-              variant="outline"
-              className="border-emerald-600 text-emerald-400 hover:bg-emerald-500/10 px-8 h-12 text-base"
+              variant="ghost"
+              className="text-gray-400 hover:text-white hover:bg-white/5 px-8 h-12 text-base rounded-xl"
               onClick={() => setShowLoginDialog(true)}
             >
               Acessar Dashboard

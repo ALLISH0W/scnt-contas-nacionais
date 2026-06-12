@@ -6,6 +6,8 @@ import { AboutSection } from '@/components/about-section'
 import { IndicatorsSection } from '@/components/indicators-section'
 import { MethodologySection } from '@/components/methodology-section'
 import { DashboardSection } from '@/components/dashboard-section'
+import { QuizSection } from '@/components/quiz-section'
+import { RankingSection } from '@/components/ranking-section'
 import { LoginDialog } from '@/components/login-dialog'
 import { Footer } from '@/components/footer'
 
@@ -20,6 +22,8 @@ export default function Home() {
         <IndicatorsSection />
         <MethodologySection />
         <DashboardSection />
+        <QuizSection />
+        <RankingSection />
       </main>
       <Footer />
     </div>

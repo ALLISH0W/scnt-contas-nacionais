@@ -21,3 +21,14 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+model QuizScore {
+  id              String   @id @default(cuid())
+  userName        String
+  userEmail       String
+  score           Int
+  totalQuestions  Int
+  percentage      Float
+  timeSeconds     Int      @default(0)
+  completedAt     DateTime @default(now())
+}

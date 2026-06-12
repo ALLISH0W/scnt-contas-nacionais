@@ -12,6 +12,8 @@ const navLinks = [
   { label: 'Indicadores', href: '#indicadores' },
   { label: 'Metodologia', href: '#metodologia' },
   { label: 'Dashboard', href: '#dashboard' },
+  { label: 'Quiz', href: '#quiz' },
+  { label: 'Ranking', href: '#ranking' },
 ]
 
 export function Navbar() {

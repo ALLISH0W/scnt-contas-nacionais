@@ -12,6 +12,7 @@ import {
   RotateCcw, Trophy, Clock, Zap, Target, ChevronRight,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
+import { useQuizStore } from '@/lib/quiz-store'
 import { toast } from 'sonner'
 
 interface QuizQuestion {
@@ -134,22 +135,21 @@ export function QuizSection() {
 
       setPercentage(finalPercentage)
 
-      const res = await fetch('/api/quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userName: user.name || user.email.split('@')[0],
-          userEmail: user.email,
-          answers,
-          timeSeconds,
-        }),
+      // Save to localStorage store (works on Vercel too)
+      const { addScore } = useQuizStore.getState()
+      addScore({
+        userName: user.name || user.email.split('@')[0],
+        userEmail: user.email,
+        score: finalScore,
+        totalQuestions,
+        percentage: finalPercentage,
+        timeSeconds,
       })
-      if (!res.ok) throw new Error('Erro ao enviar respostas')
 
       setQuizState('results')
       toast.success(`Quiz finalizado! Você acertou ${finalScore} de ${totalQuestions}!`)
     } catch {
-      toast.error('Erro ao enviar respostas')
+      toast.error('Erro ao salvar resultado')
       setQuizState('idle')
     }
   }

@@ -10,11 +10,13 @@ import {
   Trophy, Medal, RefreshCw, Crown, Timer, Target, Users,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
+import { useQuizStore } from '@/lib/quiz-store'
 
 interface RankingEntry {
   position: number
   id: string
   userName: string
+  userEmail: string
   score: number
   totalQuestions: number
   percentage: number
@@ -24,28 +26,39 @@ interface RankingEntry {
 
 export function RankingSection() {
   const { user, isAuthenticated } = useAuthStore()
+  const { scores } = useQuizStore()
   const [ranking, setRanking] = useState<RankingEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const fetchRanking = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await fetch('/api/quiz/ranking')
-      if (!res.ok) throw new Error('Erro ao carregar ranking')
-      const data = await res.json()
-      setRanking(data.ranking)
-    } catch {
-      setError('Erro ao carregar ranking')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Compute ranking from store
   useEffect(() => {
-    fetchRanking()
-  }, [])
+    // Simulate a small delay for visual feedback
+    const timer = setTimeout(() => {
+      const bestMap = new Map<string, RankingEntry>()
+      for (const score of scores) {
+        const existing = bestMap.get(score.userEmail)
+        if (!existing || score.percentage > existing.percentage ||
+            (score.percentage === existing.percentage && score.timeSeconds < existing.timeSeconds)) {
+          bestMap.set(score.userEmail, {
+            ...score,
+            position: 0, // will be set after sort
+          })
+        }
+      }
+
+      const sorted = Array.from(bestMap.values())
+        .sort((a, b) => {
+          if (b.percentage !== a.percentage) return b.percentage - a.percentage
+          return a.timeSeconds - b.timeSeconds
+        })
+        .map((entry, index) => ({ ...entry, position: index + 1 }))
+
+      setRanking(sorted)
+      setLoading(false)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [scores])
 
   const getPositionIcon = (position: number) => {
     if (position === 1) return <Crown className="w-5 h-5 text-yellow-500" />
@@ -67,16 +80,26 @@ export function RankingSection() {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  const formatDate = (isoDate: string) => {
-    try {
-      return new Date(isoDate).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-    } catch {
-      return '-'
+  const refreshRanking = () => {
+    setLoading(true)
+    // Re-trigger the useEffect by accessing scores
+    const bestMap = new Map<string, RankingEntry>()
+    const currentScores = useQuizStore.getState().scores
+    for (const score of currentScores) {
+      const existing = bestMap.get(score.userEmail)
+      if (!existing || score.percentage > existing.percentage ||
+          (score.percentage === existing.percentage && score.timeSeconds < existing.timeSeconds)) {
+        bestMap.set(score.userEmail, { ...score, position: 0 })
+      }
     }
+    const sorted = Array.from(bestMap.values())
+      .sort((a, b) => {
+        if (b.percentage !== a.percentage) return b.percentage - a.percentage
+        return a.timeSeconds - b.timeSeconds
+      })
+      .map((entry, index) => ({ ...entry, position: index + 1 }))
+    setRanking(sorted)
+    setTimeout(() => setLoading(false), 300)
   }
 
   return (
@@ -107,16 +130,6 @@ export function RankingSection() {
               <Skeleton key={i} className="h-16 rounded-xl" />
             ))}
           </div>
-        ) : error ? (
-          <Card className="border-destructive">
-            <CardContent className="p-6 text-center">
-              <p className="text-destructive mb-4">{error}</p>
-              <Button variant="outline" onClick={fetchRanking}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Tentar Novamente
-              </Button>
-            </CardContent>
-          </Card>
         ) : ranking.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
@@ -194,7 +207,7 @@ export function RankingSection() {
                     <Trophy className="w-5 h-5 text-emerald-500" />
                     Classificação Completa
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={fetchRanking}>
+                  <Button variant="ghost" size="sm" onClick={refreshRanking}>
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
